@@ -4,7 +4,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupAuth, isAuthenticated, requireRole } from "./replitAuth";
 import { 
   insertStudentSchema,
   insertInstructorSchema,
@@ -36,7 +36,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==========================================
   
   // Get student profile
-  app.get("/api/student/profile", isAuthenticated, async (req: any, res) => {
+  app.get("/api/student/profile", isAuthenticated, requireRole("student"), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       let student = await storage.getStudent(userId);
@@ -54,7 +54,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get student's upcoming lessons
-  app.get("/api/student/lessons/upcoming", isAuthenticated, async (req: any, res) => {
+  app.get("/api/student/lessons/upcoming", isAuthenticated, requireRole("student"), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const student = await storage.getStudent(userId);
@@ -77,7 +77,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get student's payments
-  app.get("/api/student/payments/recent", isAuthenticated, async (req: any, res) => {
+  app.get("/api/student/payments/recent", isAuthenticated, requireRole("student"), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const student = await storage.getStudent(userId);
@@ -99,7 +99,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==========================================
   
   // Get instructor's students
-  app.get("/api/instructor/students", isAuthenticated, async (req: any, res) => {
+  app.get("/api/instructor/students", isAuthenticated, requireRole("instructor"), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       let instructor = await storage.getInstructor(userId);
@@ -117,7 +117,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get instructor's lessons for today
-  app.get("/api/instructor/lessons/today", isAuthenticated, async (req: any, res) => {
+  app.get("/api/instructor/lessons/today", isAuthenticated, requireRole("instructor"), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const instructor = await storage.getInstructor(userId);
@@ -142,7 +142,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get instructor's upcoming lessons
-  app.get("/api/instructor/lessons/upcoming", isAuthenticated, async (req: any, res) => {
+  app.get("/api/instructor/lessons/upcoming", isAuthenticated, requireRole("instructor"), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const instructor = await storage.getInstructor(userId);
@@ -169,13 +169,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==========================================
   
   // Get admin dashboard stats
-  app.get("/api/admin/stats", isAuthenticated, async (req: any, res) => {
+  app.get("/api/admin/stats", isAuthenticated, requireRole("super_admin"), async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
-      
-      if (user?.role !== "super_admin") {
-        return res.status(403).json({ message: "Forbidden" });
-      }
       
       const users = await storage.getAllUsers();
       const lessons = await storage.getAllLessons();
@@ -203,13 +198,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get recent users
-  app.get("/api/admin/users/recent", isAuthenticated, async (req: any, res) => {
+  app.get("/api/admin/users/recent", isAuthenticated, requireRole("super_admin"), async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
-      
-      if (user?.role !== "super_admin") {
-        return res.status(403).json({ message: "Forbidden" });
-      }
       
       const users = await storage.getAllUsers();
       res.json(users.slice(0, 5));
@@ -220,13 +210,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get recent lessons
-  app.get("/api/admin/lessons/recent", isAuthenticated, async (req: any, res) => {
+  app.get("/api/admin/lessons/recent", isAuthenticated, requireRole("super_admin"), async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
-      
-      if (user?.role !== "super_admin") {
-        return res.status(403).json({ message: "Forbidden" });
-      }
       
       const lessons = await storage.getAllLessons();
       res.json(lessons.slice(0, 5));
@@ -237,13 +222,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get pending payments
-  app.get("/api/admin/payments/pending", isAuthenticated, async (req: any, res) => {
+  app.get("/api/admin/payments/pending", isAuthenticated, requireRole("super_admin"), async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
-      
-      if (user?.role !== "super_admin") {
-        return res.status(403).json({ message: "Forbidden" });
-      }
       
       const payments = await storage.getAllPayments();
       const pending = payments.filter(p => p.status === "pending");

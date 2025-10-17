@@ -41,7 +41,7 @@ export function getSession() {
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === "production",
       maxAge: sessionTtl,
     },
   });
@@ -157,4 +157,30 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     res.status(401).json({ message: "Unauthorized" });
     return;
   }
+};
+
+// Role-based authorization middleware
+export const requireRole = (...allowedRoles: string[]): RequestHandler => {
+  return async (req: any, res, next) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      if (!allowedRoles.includes(user.role)) {
+        return res.status(403).json({ message: "Forbidden: Insufficient permissions" });
+      }
+
+      next();
+    } catch (error) {
+      console.error("Error checking role:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  };
 };
