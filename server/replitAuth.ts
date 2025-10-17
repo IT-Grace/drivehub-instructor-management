@@ -4,11 +4,11 @@
 import * as client from "openid-client";
 import { Strategy, type VerifyFunction } from "openid-client/passport";
 
-import passport from "passport";
-import session from "express-session";
-import type { Express, RequestHandler } from "express";
-import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
+import type { Express, RequestHandler } from "express";
+import session from "express-session";
+import memoize from "memoizee";
+import passport from "passport";
 import { storage } from "./storage";
 
 if (!process.env.REPLIT_DOMAINS) {
@@ -57,9 +57,7 @@ function updateUserSession(
   user.expires_at = user.claims?.exp;
 }
 
-async function upsertUser(
-  claims: any,
-) {
+async function upsertUser(claims: any) {
   await storage.upsertUser({
     id: claims["sub"],
     email: claims["email"],
@@ -75,6 +73,53 @@ export async function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
+  // Development mode: Skip Replit Auth and create mock user
+  if (process.env.NODE_ENV === "development") {
+    console.log("🔧 Development mode: Using mock authentication");
+
+    // Mock user for development
+    const mockUser = {
+      claims: {
+        sub: "dev-user-1",
+        email: "dev@example.com",
+        first_name: "Dev",
+        last_name: "User",
+      },
+    };
+
+    // Create mock user in database
+    await storage.upsertUser({
+      id: "dev-user-1",
+      email: "dev@example.com",
+      firstName: "Dev",
+      lastName: "User",
+      role: "super_admin", // Give admin role for testing
+    });
+
+    // Mock login route - automatically logs in dev user
+    app.get("/api/login", (req, res) => {
+      req.login(mockUser, (err) => {
+        if (err) {
+          return res.status(500).json({ message: "Login failed" });
+        }
+        res.redirect("/");
+      });
+    });
+
+    // Mock logout
+    app.get("/api/logout", (req, res) => {
+      req.logout(() => {
+        res.redirect("/");
+      });
+    });
+
+    passport.serializeUser((user: Express.User, cb) => cb(null, user));
+    passport.deserializeUser((user: Express.User, cb) => cb(null, user));
+
+    return;
+  }
+
+  // Production Replit Auth setup
   const config = await getOidcConfig();
 
   const verify: VerifyFunction = async (
@@ -87,8 +132,7 @@ export async function setupAuth(app: Express) {
     verified(null, user);
   };
 
-  for (const domain of process.env
-    .REPLIT_DOMAINS!.split(",")) {
+  for (const domain of process.env.REPLIT_DOMAINS!.split(",")) {
     const strategy = new Strategy(
       {
         name: `replitauth:${domain}`,
@@ -96,7 +140,7 @@ export async function setupAuth(app: Express) {
         scope: "openid email profile offline_access",
         callbackURL: `https://${domain}/api/callback`,
       },
-      verify,
+      verify
     );
     passport.use(strategy);
   }
@@ -131,6 +175,15 @@ export async function setupAuth(app: Express) {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
+  // Development mode: Always authenticate mock user
+  if (process.env.NODE_ENV === "development") {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    return next();
+  }
+
+  // Production Replit Auth validation
   const user = req.user as any;
 
   if (!req.isAuthenticated() || !user.expires_at) {
@@ -163,9 +216,17 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
 export const requireRole = (...allowedRoles: string[]): RequestHandler => {
   return async (req: any, res, next) => {
     try {
-      const userId = req.user?.claims?.sub;
-      if (!userId) {
-        return res.status(401).json({ message: "Unauthorized" });
+      let userId: string;
+
+      // Development mode: Use mock user ID
+      if (process.env.NODE_ENV === "development") {
+        userId = "dev-user-1";
+      } else {
+        // Production: Get from JWT claims
+        userId = req.user?.claims?.sub;
+        if (!userId) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
       }
 
       const user = await storage.getUser(userId);
@@ -174,7 +235,9 @@ export const requireRole = (...allowedRoles: string[]): RequestHandler => {
       }
 
       if (!allowedRoles.includes(user.role)) {
-        return res.status(403).json({ message: "Forbidden: Insufficient permissions" });
+        return res
+          .status(403)
+          .json({ message: "Forbidden: Insufficient permissions" });
       }
 
       next();
