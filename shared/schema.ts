@@ -1,18 +1,18 @@
 // Data schema for driving instructor management application
 // Referenced from javascript_log_in_with_replit and javascript_database blueprints
 
-import { sql, relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
+  decimal,
   index,
+  integer,
   jsonb,
   pgTable,
+  text,
   timestamp,
   varchar,
-  text,
-  decimal,
-  integer,
 } from "drizzle-orm/pg-core";
-import { createInsertSchema, createSelectSchema } from "drizzle-zod";
+import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // ==========================================
@@ -27,12 +27,14 @@ export const sessions = pgTable(
     sess: jsonb("sess").notNull(),
     expire: timestamp("expire").notNull(),
   },
-  (table) => [index("IDX_session_expire").on(table.expire)],
+  (table) => [index("IDX_session_expire").on(table.expire)]
 );
 
 // User storage table - mandatory for Replit Auth, extended with role
 export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
   email: varchar("email").unique(),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
@@ -45,19 +47,40 @@ export const users = pgTable("users", {
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
 
+export const insertUserSchema = createInsertSchema(users, {
+  email: z.string().email().optional(),
+  role: z.enum(["student", "instructor", "super_admin"]).optional(),
+}).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertUser = z.infer<typeof insertUserSchema>;
+
 // ==========================================
 // STUDENT MANAGEMENT TABLES
 // ==========================================
 
 export const students = pgTable("students", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  instructorId: varchar("instructor_id").references(() => users.id, { onDelete: "set null" }),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  userId: varchar("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  instructorId: varchar("instructor_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
   licenseNumber: varchar("license_number"),
   phone: varchar("phone"),
   address: text("address"),
-  hoursCompleted: decimal("hours_completed", { precision: 5, scale: 2 }).notNull().default("0"),
-  totalHours: decimal("total_hours", { precision: 5, scale: 2 }).notNull().default("40"), // typical requirement
+  hoursCompleted: decimal("hours_completed", { precision: 5, scale: 2 })
+    .notNull()
+    .default("0"),
+  totalHours: decimal("total_hours", { precision: 5, scale: 2 })
+    .notNull()
+    .default("40"), // typical requirement
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -77,8 +100,12 @@ export type Student = typeof students.$inferSelect;
 // ==========================================
 
 export const instructors = pgTable("instructors", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  userId: varchar("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
   licenseNumber: varchar("license_number"),
   phone: varchar("phone"),
   specializations: text("specializations").array(),
@@ -101,13 +128,21 @@ export type Instructor = typeof instructors.$inferSelect;
 // ==========================================
 
 export const lessons = pgTable("lessons", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  studentId: varchar("student_id").notNull().references(() => students.id, { onDelete: "cascade" }),
-  instructorId: varchar("instructor_id").notNull().references(() => instructors.id, { onDelete: "cascade" }),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  studentId: varchar("student_id")
+    .notNull()
+    .references(() => students.id, { onDelete: "cascade" }),
+  instructorId: varchar("instructor_id")
+    .notNull()
+    .references(() => instructors.id, { onDelete: "cascade" }),
   scheduledAt: timestamp("scheduled_at").notNull(),
   duration: integer("duration").notNull().default(60), // minutes
   status: varchar("status", { length: 20 }).notNull().default("scheduled"), // scheduled, completed, cancelled, pending
-  lessonType: varchar("lesson_type", { length: 50 }).notNull().default("standard"), // standard, highway, parking, test_prep
+  lessonType: varchar("lesson_type", { length: 50 })
+    .notNull()
+    .default("standard"), // standard, highway, parking, test_prep
   location: text("location"),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -131,9 +166,15 @@ export type Lesson = typeof lessons.$inferSelect;
 // ==========================================
 
 export const payments = pgTable("payments", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  studentId: varchar("student_id").notNull().references(() => students.id, { onDelete: "cascade" }),
-  lessonId: varchar("lesson_id").references(() => lessons.id, { onDelete: "set null" }),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  studentId: varchar("student_id")
+    .notNull()
+    .references(() => students.id, { onDelete: "cascade" }),
+  lessonId: varchar("lesson_id").references(() => lessons.id, {
+    onDelete: "set null",
+  }),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   status: varchar("status", { length: 20 }).notNull().default("pending"), // pending, paid, overdue, cancelled
   paymentMethod: varchar("payment_method", { length: 50 }),
