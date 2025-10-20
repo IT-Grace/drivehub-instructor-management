@@ -1,12 +1,13 @@
-import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
-import { Users, Calendar, DollarSign, TrendingUp } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import type { User, Lesson, Payment } from "@shared/schema";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import type { Lesson, Payment, User } from "@shared/schema";
+import { useQuery } from "@tanstack/react-query";
+import { Calendar, DollarSign, TrendingUp, Users } from "lucide-react";
+import { useEffect } from "react";
+import { Link } from "wouter";
 
 interface DashboardStats {
   totalUsers: number;
@@ -82,7 +83,8 @@ export default function AdminDashboard() {
               {stats?.totalUsers || 0}
             </div>
             <p className="text-xs text-muted-foreground">
-              {stats?.totalStudents || 0} students, {stats?.totalInstructors || 0} instructors
+              {stats?.totalStudents || 0} students,{" "}
+              {stats?.totalInstructors || 0} instructors
             </p>
           </CardContent>
         </Card>
@@ -93,7 +95,10 @@ export default function AdminDashboard() {
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold" data-testid="text-total-lessons">
+            <div
+              className="text-2xl font-bold"
+              data-testid="text-total-lessons"
+            >
               {stats?.totalLessons || 0}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -108,7 +113,10 @@ export default function AdminDashboard() {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold" data-testid="text-total-revenue">
+            <div
+              className="text-2xl font-bold"
+              data-testid="text-total-revenue"
+            >
               ${stats?.totalRevenue?.toFixed(2) || "0.00"}
             </div>
             <p className="text-xs text-muted-foreground">all time earnings</p>
@@ -117,11 +125,16 @@ export default function AdminDashboard() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Payments</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Pending Payments
+            </CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold" data-testid="text-pending-payments">
+            <div
+              className="text-2xl font-bold"
+              data-testid="text-pending-payments"
+            >
               ${stats?.pendingPayments?.toFixed(2) || "0.00"}
             </div>
             <p className="text-xs text-muted-foreground">awaiting collection</p>
@@ -134,8 +147,8 @@ export default function AdminDashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-2">
             <CardTitle>Recent Users</CardTitle>
-            <Button size="sm" data-testid="button-manage-users">
-              Manage Users
+            <Button size="sm" asChild data-testid="button-manage-users">
+              <Link href="/users">Manage Users</Link>
             </Button>
           </CardHeader>
           <CardContent>
@@ -156,7 +169,9 @@ export default function AdminDashboard() {
                       <p className="font-medium">
                         {user.firstName} {user.lastName}
                       </p>
-                      <p className="text-sm text-muted-foreground">{user.email}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {user.email}
+                      </p>
                     </div>
                     <Badge variant="secondary" className="capitalize">
                       {user.role.replace("_", " ")}
@@ -172,15 +187,22 @@ export default function AdminDashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-2">
             <CardTitle>Recent Lessons</CardTitle>
-            <Button size="sm" variant="outline" data-testid="button-view-all-lessons">
-              View All
+            <Button
+              size="sm"
+              variant="outline"
+              asChild
+              data-testid="button-view-all-lessons"
+            >
+              <Link href="/all-lessons">View All</Link>
             </Button>
           </CardHeader>
           <CardContent>
             {recentLessons.length === 0 ? (
               <div className="text-center py-8">
                 <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-sm text-muted-foreground">No lessons scheduled</p>
+                <p className="text-sm text-muted-foreground">
+                  No lessons scheduled
+                </p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -193,16 +215,23 @@ export default function AdminDashboard() {
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="font-medium">
-                          {new Date(lesson.scheduledAt).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                          })}
+                          {new Date(lesson.scheduledAt).toLocaleDateString(
+                            "en-US",
+                            {
+                              month: "short",
+                              day: "numeric",
+                            }
+                          )}
                         </span>
-                        <Badge variant={
-                          lesson.status === "completed" ? "default" :
-                          lesson.status === "scheduled" ? "secondary" :
-                          "destructive"
-                        }>
+                        <Badge
+                          variant={
+                            lesson.status === "completed"
+                              ? "default"
+                              : lesson.status === "scheduled"
+                              ? "secondary"
+                              : "destructive"
+                          }
+                        >
                           {lesson.status}
                         </Badge>
                       </div>

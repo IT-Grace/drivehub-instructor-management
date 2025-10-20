@@ -1,28 +1,28 @@
-import {
-  Calendar,
-  Users,
-  DollarSign,
-  LayoutDashboard,
-  GraduationCap,
-  UserCircle,
-  Settings,
-  Car,
-} from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
+  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarHeader,
-  SidebarFooter,
 } from "@/components/ui/sidebar";
-import { useLocation } from "wouter";
 import type { User } from "@shared/schema";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Calendar,
+  Car,
+  DollarSign,
+  GraduationCap,
+  LayoutDashboard,
+  Settings,
+  UserCircle,
+  Users,
+} from "lucide-react";
+import { useLocation } from "wouter";
 
 interface AppSidebarProps {
   user: User;
@@ -67,18 +67,23 @@ export function AppSidebar({ user }: AppSidebarProps) {
         ...commonItems,
         {
           title: "Schedule",
-          url: "/schedule",
+          url: "/instructor-schedule",
           icon: Calendar,
         },
         {
           title: "Students",
-          url: "/students",
+          url: "/instructor-students",
           icon: Users,
         },
         {
           title: "Earnings",
-          url: "/earnings",
+          url: "/instructor-earnings",
           icon: DollarSign,
+        },
+        {
+          title: "Settings",
+          url: "/instructor-settings",
+          icon: Settings,
         },
       ];
     }
@@ -113,7 +118,9 @@ export function AppSidebar({ user }: AppSidebarProps) {
   };
 
   const items = getNavigationItems();
-  const initials = `${user.firstName?.[0] || ""}${user.lastName?.[0] || ""}`.toUpperCase() || "U";
+  const initials =
+    `${user.firstName?.[0] || ""}${user.lastName?.[0] || ""}`.toUpperCase() ||
+    "U";
 
   return (
     <Sidebar data-testid="sidebar-main">
@@ -133,9 +140,14 @@ export function AppSidebar({ user }: AppSidebarProps) {
                   <SidebarMenuButton
                     asChild
                     isActive={location === item.url}
-                    data-testid={`link-${item.title.toLowerCase().replace(/\s+/g, "-")}`}
+                    data-testid={`link-${item.title
+                      .toLowerCase()
+                      .replace(/\s+/g, "-")}`}
                   >
-                    <a href={item.url} className="hover-elevate active-elevate-2">
+                    <a
+                      href={item.url}
+                      className="hover-elevate active-elevate-2"
+                    >
                       <item.icon className="h-4 w-4" />
                       <span>{item.title}</span>
                     </a>
@@ -149,14 +161,19 @@ export function AppSidebar({ user }: AppSidebarProps) {
       <SidebarFooter className="p-4">
         <div className="flex items-center gap-3">
           <Avatar className="h-8 w-8">
-            <AvatarImage src={user.profileImageUrl || undefined} className="object-cover" />
+            <AvatarImage
+              src={user.profileImageUrl || undefined}
+              className="object-cover"
+            />
             <AvatarFallback>{initials}</AvatarFallback>
           </Avatar>
           <div className="flex-1 overflow-hidden">
             <p className="text-sm font-medium truncate">
               {user.firstName} {user.lastName}
             </p>
-            <p className="text-xs text-muted-foreground capitalize">{user.role.replace("_", " ")}</p>
+            <p className="text-xs text-muted-foreground capitalize">
+              {user.role.replace("_", " ")}
+            </p>
           </div>
         </div>
       </SidebarFooter>

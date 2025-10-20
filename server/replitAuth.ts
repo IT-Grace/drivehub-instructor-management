@@ -34,8 +34,24 @@ export function getSession() {
     ttl: sessionTtl,
     tableName: "sessions",
   });
+  // Generate session secret if not provided
+  const sessionSecret =
+    process.env.SESSION_SECRET ||
+    (() => {
+      const crypto = require("crypto");
+      const generated = crypto.randomBytes(64).toString("hex");
+      console.warn(
+        "⚠️  No SESSION_SECRET provided. Auto-generated one for this session."
+      );
+      console.warn(
+        "🔑 For production, set SESSION_SECRET in your environment variables."
+      );
+      console.warn(`🔧 Generated secret: ${generated}`);
+      return generated;
+    })();
+
   return session({
-    secret: process.env.SESSION_SECRET!,
+    secret: sessionSecret,
     store: sessionStore,
     resave: false,
     saveUninitialized: false,
@@ -73,31 +89,196 @@ export async function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
-  // Development mode: Skip Replit Auth and create mock user
+  // Development mode: Skip Replit Auth and create mock users
   if (process.env.NODE_ENV === "development") {
     console.log("🔧 Development mode: Using mock authentication");
 
-    // Mock user for development
-    const mockUser = {
-      claims: {
-        sub: "dev-user-1",
-        email: "dev@example.com",
-        first_name: "Dev",
-        last_name: "User",
+    // Create multiple test users for development
+    const testUsers = [
+      {
+        id: "dev-admin-1",
+        email: "admin@example.com",
+        firstName: "Admin",
+        lastName: "User",
+        role: "super_admin",
       },
-    };
+      {
+        id: "dev-instructor-1",
+        email: "instructor@example.com",
+        firstName: "John",
+        lastName: "Instructor",
+        role: "instructor",
+      },
+      {
+        id: "dev-student-1",
+        email: "student@example.com",
+        firstName: "Jane",
+        lastName: "Student",
+        role: "student",
+      },
+    ];
 
-    // Create mock user in database
-    await storage.upsertUser({
-      id: "dev-user-1",
-      email: "dev@example.com",
-      firstName: "Dev",
-      lastName: "User",
-      role: "super_admin", // Give admin role for testing
+    // Create all test users in database
+    for (const user of testUsers) {
+      await storage.upsertUser(user);
+    }
+
+    // Create corresponding student and instructor profiles
+    try {
+      // Create instructor profile for instructor user
+      const existingInstructor = await storage.getInstructor(
+        "dev-instructor-1"
+      );
+      if (!existingInstructor) {
+        await storage.createInstructor({
+          userId: "dev-instructor-1",
+          licenseNumber: "INST-12345",
+          phone: "(555) 987-6543",
+          specializations: [
+            "Manual transmission",
+            "Highway driving",
+            "Defensive driving",
+          ],
+          bio: "Experienced driving instructor with 5 years of teaching safe driving practices.",
+        });
+      }
+
+      // Create student profile for student user
+      const existingStudent = await storage.getStudent("dev-student-1");
+      if (!existingStudent) {
+        await storage.createStudent({
+          userId: "dev-student-1",
+          instructorId: "dev-instructor-1", // Assign to our test instructor
+          licenseNumber: null,
+          phone: "(555) 123-4567",
+          address: "123 Student Street, Learning City, LC 12345",
+          hoursCompleted: "12.50",
+          totalHours: "40.00",
+          notes:
+            "Progressing well with parallel parking. Needs more highway practice.",
+        });
+      }
+    } catch (error) {
+      console.log("Note: Some test profiles may already exist");
+    }
+
+    // Development login selection page
+    app.get("/api/login", (req, res) => {
+      res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>DriveHub - Development Login</title>
+          <style>
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              max-width: 600px; 
+              margin: 100px auto; 
+              padding: 20px;
+              background: #f5f5f5;
+            }
+            .container {
+              background: white;
+              padding: 40px;
+              border-radius: 12px;
+              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            }
+            h1 { 
+              color: #333; 
+              text-align: center;
+              margin-bottom: 30px;
+            }
+            .user-card {
+              border: 2px solid #e5e5e5;
+              border-radius: 8px;
+              padding: 20px;
+              margin: 15px 0;
+              cursor: pointer;
+              transition: all 0.2s;
+              text-decoration: none;
+              color: inherit;
+              display: block;
+            }
+            .user-card:hover {
+              border-color: #007bff;
+              background: #f8f9fa;
+              transform: translateY(-2px);
+            }
+            .user-name { font-weight: bold; font-size: 18px; }
+            .user-email { color: #666; margin: 5px 0; }
+            .user-role { 
+              display: inline-block;
+              background: #007bff;
+              color: white;
+              padding: 4px 12px;
+              border-radius: 20px;
+              font-size: 12px;
+              text-transform: uppercase;
+              font-weight: bold;
+            }
+            .admin { background: #dc3545; }
+            .instructor { background: #28a745; }
+            .student { background: #ffc107; color: #333; }
+            .note {
+              text-align: center;
+              color: #666;
+              margin-top: 20px;
+              font-style: italic;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>🚗 DriveHub Development Login</h1>
+            <p style="text-align: center; color: #666; margin-bottom: 30px;">
+              Choose a user to sign in as:
+            </p>
+            
+            <a href="/api/dev-login/dev-admin-1" class="user-card">
+              <div class="user-name">Admin User</div>
+              <div class="user-email">admin@example.com</div>
+              <div class="user-role admin">Super Admin</div>
+            </a>
+            
+            <a href="/api/dev-login/dev-instructor-1" class="user-card">
+              <div class="user-name">John Instructor</div>
+              <div class="user-email">instructor@example.com</div>
+              <div class="user-role instructor">Instructor</div>
+            </a>
+            
+            <a href="/api/dev-login/dev-student-1" class="user-card">
+              <div class="user-name">Jane Student</div>
+              <div class="user-email">student@example.com</div>
+              <div class="user-role student">Student</div>
+            </a>
+            
+            <div class="note">
+              This is development mode only. Production uses Replit Auth.
+            </div>
+          </div>
+        </body>
+        </html>
+      `);
     });
 
-    // Mock login route - automatically logs in dev user
-    app.get("/api/login", (req, res) => {
+    // Development login handler for specific user
+    app.get("/api/dev-login/:userId", async (req, res) => {
+      const { userId } = req.params;
+      const user = testUsers.find((u) => u.id === userId);
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const mockUser = {
+        claims: {
+          sub: user.id,
+          email: user.email,
+          first_name: user.firstName,
+          last_name: user.lastName,
+        },
+      };
+
       req.login(mockUser, (err) => {
         if (err) {
           return res.status(500).json({ message: "Login failed" });
@@ -218,9 +399,12 @@ export const requireRole = (...allowedRoles: string[]): RequestHandler => {
     try {
       let userId: string;
 
-      // Development mode: Use mock user ID
+      // Development mode: Get from session user
       if (process.env.NODE_ENV === "development") {
-        userId = "dev-user-1";
+        userId = req.user?.claims?.sub;
+        if (!userId) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
       } else {
         // Production: Get from JWT claims
         userId = req.user?.claims?.sub;

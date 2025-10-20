@@ -13,7 +13,9 @@ if (!process.env.DATABASE_URL) {
 }
 
 // Use regular PostgreSQL for local development, Neon for production
-const isLocalDatabase = process.env.DATABASE_URL.includes("localhost");
+const isLocalDatabase =
+  process.env.DATABASE_URL.includes("localhost") ||
+  process.env.DATABASE_URL.includes("host.docker.internal");
 
 let db: any;
 let pool: any;
